@@ -7,6 +7,4 @@ scikit-learn==1.7.1
 matplotlib
 seaborn
 plotly
-
-# Dependências da função de coleta (Vercel)
 psycopg2-binary==2.9.7
