@@ -10,6 +10,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 import os
+import psycopg2
+
 
 # Configuração da página
 st.set_page_config(
@@ -23,18 +25,44 @@ st.set_page_config(
 st.title("🌤️ Dashboard Meteorológico - São Luiz do Paraitinga-SP")
 st.markdown("---")
 
-# Função para carregar dados
-@st.cache_data
-def load_data():
-    """Carrega os dados meteorológicos"""
-    file_path = "data/inmet_data_sao_luiz_do_paraitinga_combined.csv"
-    if os.path.exists(file_path):
-        df = pd.read_csv(file_path)
-        df['DATA'] = pd.to_datetime(df['DATA'])
-        return df
-    else:
-        st.error("Arquivo de dados não encontrado!")
+
+# Função de conexão ao banco de dados
+@st.cache_resource
+def get_database_connection():
+    try:
+        database_url = st.secrets["DATABASE_URL"]
+        conn = psycopg2.connect(database_url)
+        return conn
+    except Exception as e:
+        st.error(f"Erro ao conectar com o banco de dados: {e}")
         return None
+
+
+# Função para carregar dados
+@st.cache_data(ttl=3600)
+def load_data_from_database():
+    conn = get_database_connection()
+    if conn is None:
+        return None
+    
+    try:
+        query = """
+        SELECT 
+            data,
+            -- ... outras colunas
+        FROM dados_meteorologicos 
+        WHERE nome_estacao = 'SAO JOSE DOS CAMPOS'
+        ORDER BY data DESC
+        """
+        df = pd.read_sql_query(query, conn)
+        # ... processamento do DataFrame
+        conn.close()
+        return df
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {e}")
+        conn.close()
+        return None
+
 
 # Função para análise de machine learning
 @st.cache_data
@@ -65,7 +93,7 @@ def run_ml_analysis(df):
     return model, mse, r2, X_test, y_test, y_pred
 
 # Carregar dados
-df = load_data()
+df = load_data_from_database()
 
 if df is not None:
     # Sidebar com filtros
